@@ -19,26 +19,34 @@ BrenKeeper is an AI-powered bookkeeping demo that ingests bank statements, conve
 
 ## Configuration
 
-1. Copy your OpenAI credentials into `backend/.env` or set them as environment variables. Example:
+Environment templates are split for local development and EC2 production.
 
-   ```bash
-   OPENAI_API_KEY=your-key-here
-   OPENAI_MODEL=gpt-4.1-mini
-   PORT=8080
-   FRONTEND_ORIGIN=http://localhost:5173
-   ```
+1. **Root env files**
 
-2. Optionally configure the frontend with `frontend/.env`:
+   - Local: copy `.env.local.example` to `.env.local`
+   - EC2: copy `.env.ec2.example` to `.env.ec2`
 
-   ```bash
-   VITE_API_BASE_URL=http://localhost:8080
-   ```
+   Fill in the OpenAI key and adjust `PUBLIC_DOMAIN`, `EC2_HOST`, and `ACME_EMAIL` as needed.
+
+2. **Backend env files**
+
+   - Local: copy `backend/.env.local.example` to `backend/.env.local`
+   - EC2: copy `backend/.env.ec2.example` to `backend/.env.ec2`
+
+   Ensure the `FRONTEND_ORIGIN` list includes every host that should interact with the API.
+
+3. **Frontend env files**
+
+   - Local: copy `frontend/.env.local.example` to `frontend/.env.local`
+   - EC2: copy `frontend/.env.ec2.example` to `frontend/.env.ec2`
+
+   For local overrides you can point `VITE_API_BASE_URL` at `http://localhost:8080`.
 
 ## Running with Docker
 
 ```bash
 # From the repository root
-bash.exe -lc "docker compose up --build"
+bash scripts/deploy-local.sh
 ```
 
 - Frontend: http://localhost:5173
@@ -49,6 +57,22 @@ To stop the stack:
 ```bash
 bash.exe -lc "docker compose down"
 ```
+
+### Production deployment with Caddy
+
+The Docker Compose stack now includes a `caddy` service that terminates TLS for `www.brenkeeper.co.za` and proxies traffic to the frontend and backend containers. Ensure the domain's DNS A record (and optional `www` CNAME) points to your EC2 instance (`54.234.215.198`) so Caddy can obtain certificates from Let's Encrypt.
+
+1. Confirm the `.env.ec2`, `backend/.env.ec2`, and `frontend/.env.ec2` files are present on the server with production values.
+2. (Optional) set `ACME_EMAIL` in `.env.ec2` so Let's Encrypt can send renewal notices.
+3. On the EC2 host run:
+
+   ```bash
+   bash scripts/deploy-ec2.sh
+   ```
+
+   The script checks prerequisites and launches the stack using Docker Compose with automatic (re)builds.
+
+The Caddyfile lives at `deploy/Caddyfile`. Adjust route rules as needed if the API routes change.
 
 ## Local Development without Docker
 
@@ -68,7 +92,7 @@ npm install
 npm run dev
 ```
 
-The frontend expects the backend at `http://localhost:8080`. Update `frontend/.env` if you run the API elsewhere.
+The frontend expects the backend at `http://localhost:8080`. Update `frontend/.env.local` if you run the API elsewhere.
 
 ## Demo Credentials
 

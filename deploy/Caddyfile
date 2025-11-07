@@ -1,0 +1,45 @@
+{
+    # Optional: supply an email for ACME/Let's Encrypt registration
+    email {$ACME_EMAIL}
+    auto_https on
+}
+
+{$PUBLIC_DOMAIN} {
+    encode gzip zstd
+
+    @api {
+        path /api/*
+    }
+
+    handle @api {
+        reverse_proxy backend:8080
+    }
+
+    handle_path /health {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:5173
+    }
+}
+
+http://localhost {
+    encode gzip zstd
+
+    @api {
+        path /api/*
+    }
+
+    handle @api {
+        reverse_proxy backend:8080
+    }
+
+    handle_path /health {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:5173
+    }
+}
