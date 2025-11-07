@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type SVGProps } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from "react";
 import {
   AdjustmentsHorizontalIcon,
   ArrowLeftOnRectangleIcon,
@@ -29,7 +29,7 @@ type ChatMessage = {
 type NavigationItem = {
   id: string;
   label: string;
-  icon: (props: SVGProps<SVGSVGElement>) => JSX.Element;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   badge?: string;
 };
 

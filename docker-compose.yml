@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
     env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env}
+      - ./.env
     expose:
       - "8080"
     ports:
@@ -15,7 +15,7 @@ services:
     build:
       context: ./frontend
     env_file:
-      - ${FRONTEND_ENV_FILE:-./frontend/.env}
+      - ./.env
     expose:
       - "5173"
     ports:
@@ -26,6 +26,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    env_file:
+      - ./.env
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-www.brenkeeper.co.za}
       ACME_EMAIL: ${ACME_EMAIL:-}
