@@ -1,0 +1,15 @@
+date,description,amount,balance,category
+2025-01-02,Opening Balance,0,5200,Starting Balance
+2025-01-03,Coffee Shop,-4.50,5195.50,Expense
+2025-01-04,Software Subscription,-49.00,5146.50,Software
+2025-01-05,Salary Deposit,2500.00,7646.50,Income
+2025-01-06,Rent Payment,-1200.00,6446.50,Occupancy
+2025-01-08,Utilities,-180.25,6266.25,Utilities
+2025-01-09,Client Invoice 1042,3200.00,9466.25,Income
+2025-01-12,Team Lunch,-85.40,9380.85,Expense
+2025-01-15,Transfer to Savings,-500.00,8880.85,Transfers
+2025-01-18,Bookkeeping Software,-89.00,8791.85,Software
+2025-01-21,Office Supplies,-67.18,8724.67,Expense
+2025-01-24,Consulting Revenue,1800.00,10524.67,Income
+2025-01-28,Insurance Premium,-215.75,10308.92,Expense
+2025-01-30,Interest Earned,6.25,10315.17,Income
