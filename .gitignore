@@ -33,3 +33,7 @@ backend/.env*
 # Misc
 .DS_Store
 Thumbs.db
+backend/.env.local
+backend/.env.ec2
+frontend/.env.local
+frontend/.env.ec2
