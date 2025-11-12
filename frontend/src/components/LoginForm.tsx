@@ -117,6 +117,12 @@ export function LoginForm({ onSubmit, error, theme }: LoginFormProps) {
           ))}
         </ul>
       </div>
+
+      <footer className="absolute bottom-8 left-0 right-0 px-6">
+        <p className={`mx-auto max-w-6xl text-center text-xs ${hintClasses}`}>
+          © 2025 GeoVal X. All rights reserved. BrenKeeper™ is a trademark of GeoVal X.
+        </p>
+      </footer>
     </div>
   );
 }

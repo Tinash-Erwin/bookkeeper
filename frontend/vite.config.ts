@@ -9,6 +9,16 @@ export default defineConfig(({ mode }: { mode: string }) => {
   const projectRoot = path.resolve(__dirname, "..");
 
   const env = loadEnv(mode, projectRoot, "");
+  const allowedHosts = (env.PUBLIC_DOMAIN || "")
+    .split(",")
+    .map((domain: string) => domain.trim())
+    .filter(Boolean);
+
+  const previewConfig = {
+    host: "0.0.0.0",
+    port: 4173,
+    ...(allowedHosts.length > 0 ? { allowedHosts } : {})
+  };
 
   return {
     envDir: projectRoot,
@@ -22,6 +32,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
           changeOrigin: true
         }
       }
-    }
+    },
+    preview: previewConfig
   };
 });
