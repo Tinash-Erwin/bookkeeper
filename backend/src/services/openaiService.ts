@@ -12,13 +12,13 @@ export async function summarizeCashflow(
   const input = buildCashflowPrompt(transactions, cashflow);
 
   try {
-    const response = await client.responses.create({
-      model: config.OPENAI_MODEL,
-      input,
+    const response = await client.chat.completions.create({
+      model: config.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [{ role: "user", content: input }],
       temperature: 0.3
     });
 
-    const text = response.output_text || "";
+    const text = response.choices[0]?.message?.content || "";
     return text.trim() || "No AI summary available.";
   } catch (error) {
     logger.error({ error }, "Failed to request cashflow summary");
@@ -27,26 +27,33 @@ export async function summarizeCashflow(
 }
 
 export async function chatWithAssistant(history: string[]): Promise<string> {
-  const input = [
+  const messages = [
     {
       role: "system" as const,
       content:
         "You are BrenKeeper, an AI bookkeeper that explains cash flow statements and bookkeeping concepts in clear, actionable language."
     },
-    {
-      role: "user" as const,
-      content: history.join("\n\n")
-    }
+    ...history.map(msg => {
+      // Simple heuristic to split "role: content" strings if that's how they are stored
+      // But looking at App.tsx, it sends "role: content" strings.
+      // Ideally we should parse them or change the API contract.
+      // For now, let's assume the frontend sends "role: content" strings.
+      const match = msg.match(/^(user|assistant): (.*)$/s);
+      if (match) {
+        return { role: match[1] as "user" | "assistant", content: match[2] };
+      }
+      return { role: "user" as const, content: msg };
+    })
   ];
 
   try {
-    const response = await client.responses.create({
-      model: config.OPENAI_MODEL,
-      input,
+    const response = await client.chat.completions.create({
+      model: config.OPENAI_MODEL || "gpt-4o-mini",
+      messages,
       temperature: 0.4
     });
 
-    return response.output_text?.trim() || "No response available.";
+    return response.choices[0]?.message?.content?.trim() || "No response available.";
   } catch (error) {
     logger.error({ error }, "Failed to chat with assistant");
     return "Sorry, the AI assistant is unavailable right now.";
