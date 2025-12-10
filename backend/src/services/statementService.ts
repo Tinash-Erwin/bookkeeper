@@ -1,5 +1,7 @@
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+import { Buffer } from "buffer";
+import { config } from "../config.js";
 import { CashflowSummary, RawTransaction } from "../types.js";
 
 const CSV_MIME = new Set([
@@ -12,6 +14,8 @@ const EXCEL_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel"
 ]);
+
+const PDF_MIME = new Set(["application/pdf"]);
 
 export async function parseStatement(
   buffer: Buffer,
@@ -26,7 +30,36 @@ export async function parseStatement(
     return parseXlsxBuffer(buffer);
   }
 
+  if (PDF_MIME.has(mimetype) || originalname.toLowerCase().endsWith(".pdf")) {
+    return parsePdfBuffer(buffer);
+  }
+
   throw new Error("Unsupported file type. Please upload a CSV or XLSX bank statement.");
+}
+
+async function parsePdfBuffer(buffer: Buffer): Promise<RawTransaction[]> {
+  const blob = new Blob([buffer], { type: "application/pdf" });
+  const formData = new FormData();
+  formData.append("file", blob, "upload.pdf");
+
+  const response = await fetch(`${config.PARSER_API_URL}/parse`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Parser service failed: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json() as { transactions: any[] };
+  
+  return (data.transactions || []).map((t: any) => ({
+    date: t.date,
+    description: t.description,
+    amount: typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount,
+    category: t.category || "Uncategorized",
+  }));
 }
 
 function parseCsvBuffer(buffer: Buffer): RawTransaction[] {

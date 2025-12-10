@@ -67,6 +67,8 @@ function App() {
   const [isAuthenticated, setAuthenticated] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadPayload | null>(null);
   const [isUploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isSending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,8 +115,20 @@ function App() {
 
   const processFileUpload = async (file: File) => {
     setUploading(true);
+    setUploadProgress(0);
+    setStatusMessage("Starting upload...");
     setError(null);
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev: number) => {
+        if (prev >= 90) return prev;
+        return prev + 5; // Increment by 5% every 500ms
+      });
+    }, 500);
+
     try {
+      setStatusMessage("Uploading and analyzing document...");
       const formData = new FormData();
       formData.append("statement", file);
 
@@ -127,6 +141,9 @@ function App() {
         const message = await response.json().catch(() => ({}));
         throw new Error(message.error || "Upload failed");
       }
+
+      setStatusMessage("Finalizing results...");
+      setUploadProgress(100);
 
       const payload = (await response.json()) as UploadPayload;
       setUploadResult(payload);
@@ -143,7 +160,10 @@ function App() {
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message);
     } finally {
+      clearInterval(progressInterval);
       setUploading(false);
+      setUploadProgress(0);
+      setStatusMessage("");
     }
   };
 
@@ -294,140 +314,36 @@ function App() {
 
   return (
     <div className={`${backgroundClass} min-h-screen`}> 
-      <div className="flex min-h-screen">
-        <aside className={`hidden w-72 flex-col justify-between border-r px-4 py-6 lg:flex ${sidebarBackground}`}>
-          <div>
-            <LogoHeader theme={theme} />
-            <p className={`mt-4 text-sm ${sidebarText}`}>Your unified AI accounting desk.</p>
-            <nav className="mt-6 space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeNav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveNav(item.id)}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : isDark
-                        ? "text-slate-300 hover:bg-slate-800/80"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <Icon className="h-5 w-5" />
-                      {item.label}
-                    </span>
-                    {item.badge && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className={`mt-8 rounded-2xl p-4 ${isDark ? "bg-slate-800/60" : "bg-slate-100"}`}>
-            <p className="text-sm font-semibold">Need a walkthrough?</p>
-            <p className={`mt-1 text-xs ${sidebarText}`}>
-              Book time with an AI bookkeeping coach to tailor charts of accounts and automations.
-            </p>
+      <div className="flex min-h-screen flex-col items-center justify-center p-6">
+        <div className="mb-8 flex w-full max-w-3xl items-center justify-between">
+          <LogoHeader theme={theme} />
+          <div className="flex items-center gap-4">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <button
-              type="button"
-              className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20"
-            >
-              Book a live demo
-            </button>
-            <button
-              type="button"
               onClick={handleLogout}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700/30 bg-transparent px-3 py-2 text-sm text-slate-400 transition hover:border-rose-500/40 hover:text-rose-400"
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                isDark ? "text-slate-400 hover:bg-slate-800 hover:text-slate-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              }`}
             >
               <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-              Logout
+              <span>Sign out</span>
             </button>
           </div>
-        </aside>
+        </div>
 
-        <div className="flex flex-1 flex-col">
-          <header className={`border-b backdrop-blur ${headerBorder}`}>
-            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-              <div className="flex items-center gap-3 lg:hidden">
-                <LogoHeader theme={theme} compact />
-                <span className={`text-xs font-medium ${mutedText}`}>Active: {NAV_ITEMS.find((item) => item.id === activeNav)?.label}</span>
-              </div>
-              <div className="hidden items-center gap-2 text-sm lg:flex">
-                {NAV_ITEMS.slice(0, 4).map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeNav === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setActiveNav(item.id)}
-                      className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : isDark
-                          ? "text-slate-300 hover:bg-slate-800/80"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-3">
-                <ThemeToggle theme={theme} onToggle={toggleTheme} />
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 rounded-full border border-slate-700/30 bg-transparent px-3 py-2 text-sm text-slate-400 transition hover:border-rose-500/40 hover:text-rose-400"
-                >
-                  <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </header>
-
-          <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-6 py-8">
-            <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-              <UploadPanel
-                onUpload={handleUpload}
-                isUploading={isUploading}
-                result={uploadResult}
-                highlights={cashflowHighlights}
-                onDownload={handleDownload}
-                error={error}
-                onUseSample={handleUseSample}
-                theme={theme}
-              />
-              <ChatPanel messages={chatMessages} onSend={handleSendMessage} isSending={isSending} theme={theme} />
-            </div>
-            <InsightsPanel result={uploadResult} theme={theme} />
-            <section className={`rounded-2xl border px-6 py-5 ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white"}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">Roadmap</h3>
-                  <p className={`text-sm ${mutedText}`}>
-                    Coming soon: multi-entity consolidations, GL sync, automated approvals, and payroll matching.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary hover:bg-primary/20"
-                >
-                  Follow updates
-                </button>
-              </div>
-            </section>
-          </main>
+        <div className="w-full max-w-3xl space-y-6">
+          <UploadPanel
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            statusMessage={statusMessage}
+            result={uploadResult}
+            highlights={cashflowHighlights}
+            onDownload={handleDownload}
+            error={error}
+            onUseSample={handleUseSample}
+            theme={theme}
+          />
         </div>
       </div>
     </div>

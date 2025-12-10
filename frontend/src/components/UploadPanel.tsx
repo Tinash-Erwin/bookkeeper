@@ -10,6 +10,8 @@ type Highlight = {
 type UploadPanelProps = {
   onUpload: (file: File) => Promise<void> | void;
   isUploading: boolean;
+  uploadProgress?: number;
+  statusMessage?: string;
   result: UploadPayload | null;
   highlights: Highlight[] | null;
   onDownload: (type: "csv" | "xlsx") => void;
@@ -21,6 +23,8 @@ type UploadPanelProps = {
 export function UploadPanel({
   onUpload,
   isUploading,
+  uploadProgress = 0,
+  statusMessage = "",
   result,
   highlights,
   onDownload,
@@ -66,27 +70,10 @@ export function UploadPanel({
       <div className={`border-b px-6 py-4 ${borderColor}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Bank Statement Upload</h2>
+            <h2 className="text-lg font-semibold">PDF to Excel Converter</h2>
             <p className={`text-sm ${mutedText}`}>
-              Drop CSV or XLSX files. BrenKeeper reconciles, categorises, and prepares statements in seconds.
+              Upload a PDF bank statement to convert it to Excel.
             </p>
-          </div>
-          <div className="flex gap-2 text-xs font-medium">
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">Cash Flow</span>
-            <span
-              className={`rounded-full px-3 py-1 ${
-                isDark ? "bg-emerald-500/20 text-emerald-200" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              Balance Sheet (beta)
-            </span>
-            <span
-              className={`rounded-full px-3 py-1 ${
-                isDark ? "bg-amber-500/20 text-amber-200" : "bg-amber-100 text-amber-700"
-              }`}
-            >
-              Income Statement (beta)
-            </span>
           </div>
         </div>
       </div>
@@ -100,8 +87,24 @@ export function UploadPanel({
             className="mt-4 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20"
             disabled={isUploading}
           >
-            {isUploading ? "Uploading..." : "Choose File"}
+            {isUploading ? "Processing..." : "Choose File"}
           </button>
+
+          {isUploading && (
+            <div className="mt-6 w-full max-w-xs mx-auto">
+              <div className="mb-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>{statusMessage || "Uploading..."}</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full bg-primary transition-all duration-500 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className={`mt-4 flex flex-wrap items-center justify-center gap-3 text-xs ${mutedText}`}>
             <button
               type="button"
@@ -117,7 +120,7 @@ export function UploadPanel({
           <input
             ref={inputRef}
             type="file"
-            accept=".csv,.xlsx"
+            accept=".csv,.xlsx,.pdf"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -140,30 +143,16 @@ export function UploadPanel({
 
         {result && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onDownload("csv")}
-                className={csvButton}
-              >
-                Download CSV
-              </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => onDownload("xlsx")}
-                className={csvButton}
+                className="rounded-lg border border-emerald-500 bg-emerald-500 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-emerald-600 hover:shadow-emerald-500/30"
               >
-                Download Excel
-              </button>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Generate PDF Pack (soon)
+                Download Excel Report
               </button>
             </div>
-
+            
             <div className={`overflow-hidden rounded-xl border ${borderColor}`}>
               <table className={`min-w-full divide-y ${tableDivider} text-sm`}> 
                 <thead className={tableHeader}>
