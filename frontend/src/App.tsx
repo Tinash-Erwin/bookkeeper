@@ -42,7 +42,7 @@ const SAMPLE_STATEMENT_URL = "/demo-bank-statement.csv";
 
 const NAV_ITEMS: NavigationItem[] = [
   { id: "dashboard", label: "Dashboard", icon: Squares2X2Icon },
-  { id: "cashflow", label: "Cash Flow", icon: ArrowUpTrayIcon },
+  { id: "cashflow", label: "Cashflow Statement", icon: ArrowUpTrayIcon },
   { id: "balance-sheet", label: "Balance Sheet", icon: BanknotesIcon, badge: "Beta" },
   { id: "income-statement", label: "Income Statement", icon: PresentationChartLineIcon, badge: "Beta" },
   { id: "automation", label: "Automations", icon: SparklesIcon },
