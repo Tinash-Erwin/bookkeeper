@@ -70,9 +70,9 @@ export function UploadPanel({
       <div className={`border-b px-6 py-4 ${borderColor}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">PDF to Excel Converter</h2>
+            <h2 className="text-lg font-semibold">Bank Statement Analysis</h2>
             <p className={`text-sm ${mutedText}`}>
-              Upload a PDF bank statement to convert it to Excel.
+              Upload a bank statement to analyze cash flow and export to Excel.
             </p>
           </div>
         </div>
