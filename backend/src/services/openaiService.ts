@@ -71,11 +71,12 @@ function buildCashflowPrompt(transactions: RawTransaction[], cashflow: CashflowS
 
   return `Generate a concise bookkeeping summary using the cashflow metrics and sample transactions below.
 Return clear, non-technical language, highlight trends, and flag potential follow-ups.
+IMPORTANT: All monetary values must be in South African Rands (ZAR).
 
 Cashflow Metrics:
-- Total inflows: ${cashflow.totalInflows.toFixed(2)}
-- Total outflows: ${cashflow.totalOutflows.toFixed(2)}
-- Net cashflow: ${cashflow.netCashflow.toFixed(2)}
+- Total inflows: R${cashflow.totalInflows.toFixed(2)}
+- Total outflows: R${cashflow.totalOutflows.toFixed(2)}
+- Net cashflow: R${cashflow.netCashflow.toFixed(2)}
 - Category breakdown: ${JSON.stringify(cashflow.byCategory)}
 
 Sample transactions (first 20):
