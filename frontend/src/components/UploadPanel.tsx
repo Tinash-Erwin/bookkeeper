@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, type ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import type { UploadPayload } from "../types";
 
 type Highlight = {
@@ -10,6 +10,8 @@ type Highlight = {
 type UploadPanelProps = {
   onUpload: (file: File) => Promise<void> | void;
   isUploading: boolean;
+  uploadProgress?: number;
+  statusMessage?: string;
   result: UploadPayload | null;
   highlights: Highlight[] | null;
   onDownload: (type: "csv" | "xlsx") => void;
@@ -21,6 +23,8 @@ type UploadPanelProps = {
 export function UploadPanel({
   onUpload,
   isUploading,
+  uploadProgress = 0,
+  statusMessage = "",
   result,
   highlights,
   onDownload,
@@ -29,36 +33,6 @@ export function UploadPanel({
   theme
 }: UploadPanelProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadStatus, setUploadStatus] = useState("Uploading...");
-
-  useEffect(() => {
-    if (!isUploading) {
-      setUploadStatus("Uploading...");
-      return;
-    }
-
-    const messages = [
-      "Uploading file...",
-      "Parsing bank statement...",
-      "Analyzing transactions...",
-      "Generating reports..."
-    ];
-    
-    let index = 0;
-    setUploadStatus(messages[0]);
-
-    const interval = setInterval(() => {
-      index = (index + 1) % messages.length;
-      // Don't loop back to "Uploading" if we are deep in process, 
-      // but for simplicity let's just cap it at the last message or loop slowly.
-      // Let's just progress through them once and hold on the last one.
-      if (index < messages.length) {
-        setUploadStatus(messages[index]);
-      }
-    }, 2500); // Change message every 2.5 seconds
-
-    return () => clearInterval(interval);
-  }, [isUploading]);
 
   const handleSelectFile = () => {
     inputRef.current?.click();
@@ -96,27 +70,10 @@ export function UploadPanel({
       <div className={`border-b px-6 py-4 ${borderColor}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Bank Statement Upload</h2>
+            <h2 className="text-lg font-semibold">PDF to Excel Converter</h2>
             <p className={`text-sm ${mutedText}`}>
-              Drop CSV, XLSX, or PDF files. BrenKeeper reconciles, categorises, and prepares statements in seconds.
+              Upload a PDF bank statement to convert it to Excel.
             </p>
-          </div>
-          <div className="flex gap-2 text-xs font-medium">
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">Cash Flow</span>
-            <span
-              className={`rounded-full px-3 py-1 ${
-                isDark ? "bg-emerald-500/20 text-emerald-200" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              Balance Sheet (beta)
-            </span>
-            <span
-              className={`rounded-full px-3 py-1 ${
-                isDark ? "bg-amber-500/20 text-amber-200" : "bg-amber-100 text-amber-700"
-              }`}
-            >
-              Income Statement (beta)
-            </span>
           </div>
         </div>
       </div>
@@ -130,18 +87,24 @@ export function UploadPanel({
             className="mt-4 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20"
             disabled={isUploading}
           >
-            {isUploading ? (
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                {uploadStatus}
-              </span>
-            ) : (
-              "Choose File"
-            )}
+            {isUploading ? "Processing..." : "Choose File"}
           </button>
+
+          {isUploading && (
+            <div className="mt-6 w-full max-w-xs mx-auto">
+              <div className="mb-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>{statusMessage || "Uploading..."}</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full bg-primary transition-all duration-500 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className={`mt-4 flex flex-wrap items-center justify-center gap-3 text-xs ${mutedText}`}>
             <button
               type="button"
@@ -180,30 +143,16 @@ export function UploadPanel({
 
         {result && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onDownload("csv")}
-                className={csvButton}
-              >
-                Download CSV
-              </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => onDownload("xlsx")}
-                className={csvButton}
+                className="rounded-lg border border-emerald-500 bg-emerald-500 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-emerald-600 hover:shadow-emerald-500/30"
               >
-                Download Excel
-              </button>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Generate PDF Pack (soon)
+                Download Excel Report
               </button>
             </div>
-
+            
             <div className={`overflow-hidden rounded-xl border ${borderColor}`}>
               <table className={`min-w-full divide-y ${tableDivider} text-sm`}> 
                 <thead className={tableHeader}>
@@ -265,8 +214,8 @@ export function UploadPanel({
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-ZA", {
     style: "currency",
-    currency: "USD"
+    currency: "ZAR"
   }).format(value);
 }

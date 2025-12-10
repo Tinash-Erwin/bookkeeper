@@ -20,3 +20,10 @@ export interface UploadPayload {
   cashflow: CashflowSummary;
   aiNarrative?: string;
 }
+
+export interface HistoryItem {
+  id: string;
+  timestamp: string;
+  filename: string;
+  data: UploadPayload;
+}

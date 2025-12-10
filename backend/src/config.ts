@@ -1,4 +1,3 @@
-
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -22,7 +21,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
   OPENAI_MODEL: z.string().default("gpt-4.1-mini"),
-  FRONTEND_ORIGIN: z.string().default("http://localhost:5173")
+  FRONTEND_ORIGIN: z.string().default("http://localhost:5173"),
+  PARSER_API_URL: z.string().default("http://parser:8000")
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,11 +1,16 @@
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+<<<<<<< HEAD
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import { Buffer } from "node:buffer";
 import process from "node:process";
+=======
+import { Buffer } from "buffer";
+import { config } from "../config.js";
+>>>>>>> qa
 import { CashflowSummary, RawTransaction } from "../types.js";
 
 const CSV_MIME = new Set([
@@ -19,9 +24,13 @@ const EXCEL_MIME = new Set([
   "application/vnd.ms-excel"
 ]);
 
+<<<<<<< HEAD
 const PDF_MIME = new Set([
   "application/pdf"
 ]);
+=======
+const PDF_MIME = new Set(["application/pdf"]);
+>>>>>>> qa
 
 export async function parseStatement(
   buffer: Buffer,
@@ -40,6 +49,7 @@ export async function parseStatement(
     return parsePdfBuffer(buffer);
   }
 
+<<<<<<< HEAD
   throw new Error("Unsupported file type. Please upload a CSV, XLSX, or PDF bank statement.");
 }
 
@@ -158,6 +168,34 @@ async function parsePdfBuffer(buffer: Buffer): Promise<RawTransaction[]> {
       }
     });
   });
+=======
+  throw new Error("Unsupported file type. Please upload a CSV or XLSX bank statement.");
+>>>>>>> qa
+}
+
+async function parsePdfBuffer(buffer: Buffer): Promise<RawTransaction[]> {
+  const blob = new Blob([buffer], { type: "application/pdf" });
+  const formData = new FormData();
+  formData.append("file", blob, "upload.pdf");
+
+  const response = await fetch(`${config.PARSER_API_URL}/parse`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Parser service failed: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json() as { transactions: any[] };
+  
+  return (data.transactions || []).map((t: any) => ({
+    date: t.date,
+    description: t.description,
+    amount: typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount,
+    category: t.category || "Uncategorized",
+  }));
 }
 
 function parseCsvBuffer(buffer: Buffer): RawTransaction[] {

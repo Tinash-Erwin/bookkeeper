@@ -132,29 +132,56 @@ export function InsightsPanel({ result, theme }: InsightsPanelProps) {
             </ul>
           </div>
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">Income snapshot</h3>
-            <ul className={`mt-3 space-y-3 text-sm ${mutedText}`}>
-              <li className="flex items-center justify-between">
-                <span>Revenue</span>
-                <span className="text-emerald-500">{formatCurrency(inflows)}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Expenses</span>
-                <span className="text-rose-500">{formatCurrency(outflows * -1)}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Net cashflow</span>
-                <span className={result.cashflow.netCashflow >= 0 ? "text-emerald-500" : "text-rose-500"}>
-                  {formatCurrency(result.cashflow.netCashflow)}
-                </span>
-              </li>
-            </ul>
-            <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${isDark ? "border-slate-800 bg-slate-900/70" : "border-slate-200 bg-slate-100"}`}>
-              <p className="text-xs uppercase tracking-wide text-primary">Narrative</p>
-              <p className={`mt-1 ${mutedText}`}>
-                Cash flow statements, balance sheet, and income statement can be exported together once reviewed with the assistant.
-              </p>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">Cash Flow Statement</h3>
+            <div className={`mt-3 rounded-xl border ${isDark ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
+              <div className="p-4">
+                <h4 className={`text-xs font-semibold uppercase ${mutedText}`}>Operating Activities</h4>
+                <ul className="mt-2 space-y-2 text-sm">
+                  <li className="flex justify-between font-medium">
+                    <span>Cash Inflows</span>
+                    <span className="text-emerald-500">{formatCurrency(inflows)}</span>
+                  </li>
+                  {Object.entries(result.cashflow.byCategory)
+                    .filter(([, amount]) => amount > 0)
+                    .map(([category, amount]) => (
+                      <li key={category} className={`flex justify-between pl-4 text-xs ${mutedText}`}>
+                        <span>{category}</span>
+                        <span>{formatCurrency(amount)}</span>
+                      </li>
+                    ))}
+                  
+                  <li className="flex justify-between font-medium mt-4">
+                    <span>Cash Outflows</span>
+                    <span className="text-rose-500">{formatCurrency(outflows * -1)}</span>
+                  </li>
+                  {Object.entries(result.cashflow.byCategory)
+                    .filter(([, amount]) => amount < 0)
+                    .map(([category, amount]) => (
+                      <li key={category} className={`flex justify-between pl-4 text-xs ${mutedText}`}>
+                        <span>{category}</span>
+                        <span>{formatCurrency(amount)}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+              <div className={`border-t p-4 ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-slate-100"}`}>
+                <div className="flex items-center justify-between font-bold">
+                  <span>Net Cash Flow</span>
+                  <span className={result.cashflow.netCashflow >= 0 ? "text-emerald-500" : "text-rose-500"}>
+                    {formatCurrency(result.cashflow.netCashflow)}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {result.aiNarrative && (
+              <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${isDark ? "border-primary/30 bg-primary/10" : "border-primary/20 bg-primary/5"}`}>
+                <p className="text-xs uppercase tracking-wide text-primary font-bold">AI Analysis</p>
+                <p className={`mt-2 whitespace-pre-line ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  {result.aiNarrative}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -188,9 +215,9 @@ export function InsightsPanel({ result, theme }: InsightsPanelProps) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-ZA", {
     style: "currency",
-    currency: "USD"
+    currency: "ZAR"
   }).format(value);
 }
 

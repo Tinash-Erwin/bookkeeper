@@ -14,9 +14,10 @@ import {
 import { ChatPanel } from "./components/ChatPanel";
 import { LoginForm } from "./components/LoginForm";
 import { UploadPanel } from "./components/UploadPanel";
+import { HistoryPanel } from "./components/HistoryPanel";
 import { InsightsPanel } from "./components/InsightsPanel";
 import { ThemeToggle } from "./components/ThemeToggle";
-import type { UploadPayload } from "./types";
+import type { UploadPayload, HistoryItem } from "./types";
 
 type ThemeVariant = "light" | "dark";
 
@@ -67,6 +68,9 @@ function App() {
   const [isAuthenticated, setAuthenticated] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadPayload | null>(null);
   const [isUploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isSending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +81,21 @@ function App() {
       window.localStorage.setItem("brenkeeper-theme", theme);
     }
   }, [theme]);
+
+  useEffect(() => {
+    const storedHistory = window.localStorage.getItem("brenkeeper-history");
+    if (storedHistory) {
+      try {
+        setHistory(JSON.parse(storedHistory));
+      } catch (e) {
+        console.error("Failed to parse history", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("brenkeeper-history", JSON.stringify(history));
+  }, [history]);
 
   const cashflowHighlights = useMemo(() => {
     if (!uploadResult) return null;
@@ -113,8 +132,20 @@ function App() {
 
   const processFileUpload = async (file: File) => {
     setUploading(true);
+    setUploadProgress(0);
+    setStatusMessage("Starting upload...");
     setError(null);
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev: number) => {
+        if (prev >= 90) return prev;
+        return prev + 5; // Increment by 5% every 500ms
+      });
+    }, 500);
+
     try {
+      setStatusMessage("Uploading and analyzing document...");
       const formData = new FormData();
       formData.append("statement", file);
 
@@ -128,8 +159,19 @@ function App() {
         throw new Error(message.error || "Upload failed");
       }
 
+      setStatusMessage("Finalizing results...");
+      setUploadProgress(100);
+
       const payload = (await response.json()) as UploadPayload;
       setUploadResult(payload);
+
+      const newHistoryItem: HistoryItem = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        filename: file.name,
+        data: payload
+      };
+      setHistory((prev) => [newHistoryItem, ...prev]);
 
       if (payload.aiNarrative) {
         const aiMessage: ChatMessage = {
@@ -143,7 +185,10 @@ function App() {
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message);
     } finally {
+      clearInterval(progressInterval);
       setUploading(false);
+      setUploadProgress(0);
+      setStatusMessage("");
     }
   };
 
@@ -234,6 +279,18 @@ function App() {
     setActiveNav(NAV_ITEMS[0]?.id ?? "dashboard");
   };
 
+  const handleSelectHistory = (item: HistoryItem) => {
+    setUploadResult(item.data);
+    setActiveNav("dashboard");
+  };
+
+  const handleDeleteHistory = (id: string) => {
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+    if (uploadResult && history.find((h) => h.id === id)?.data === uploadResult) {
+      setUploadResult(null);
+    }
+  };
+
   const toggleTheme = () => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
@@ -293,143 +350,119 @@ function App() {
   }
 
   return (
-    <div className={`${backgroundClass} min-h-screen`}> 
-      <div className="flex min-h-screen">
-        <aside className={`hidden w-72 flex-col justify-between border-r px-4 py-6 lg:flex ${sidebarBackground}`}>
-          <div>
-            <LogoHeader theme={theme} />
-            <p className={`mt-4 text-sm ${sidebarText}`}>Your unified AI accounting desk.</p>
-            <nav className="mt-6 space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeNav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveNav(item.id)}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : isDark
-                        ? "text-slate-300 hover:bg-slate-800/80"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <Icon className="h-5 w-5" />
-                      {item.label}
-                    </span>
-                    {item.badge && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className={`mt-8 rounded-2xl p-4 ${isDark ? "bg-slate-800/60" : "bg-slate-100"}`}>
-            <p className="text-sm font-semibold">Need a walkthrough?</p>
-            <p className={`mt-1 text-xs ${sidebarText}`}>
-              Book time with an AI bookkeeping coach to tailor charts of accounts and automations.
-            </p>
-            <button
-              type="button"
-              className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20"
-            >
-              Book a live demo
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700/30 bg-transparent px-3 py-2 text-sm text-slate-400 transition hover:border-rose-500/40 hover:text-rose-400"
-            >
-              <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-              Logout
-            </button>
-          </div>
-        </aside>
-
-        <div className="flex flex-1 flex-col">
-          <header className={`border-b backdrop-blur ${headerBorder}`}>
-            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-              <div className="flex items-center gap-3 lg:hidden">
-                <LogoHeader theme={theme} compact />
-                <span className={`text-xs font-medium ${mutedText}`}>Active: {NAV_ITEMS.find((item) => item.id === activeNav)?.label}</span>
-              </div>
-              <div className="hidden items-center gap-2 text-sm lg:flex">
-                {NAV_ITEMS.slice(0, 4).map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeNav === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setActiveNav(item.id)}
-                      className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : isDark
-                          ? "text-slate-300 hover:bg-slate-800/80"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-3">
-                <ThemeToggle theme={theme} onToggle={toggleTheme} />
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 rounded-full border border-slate-700/30 bg-transparent px-3 py-2 text-sm text-slate-400 transition hover:border-rose-500/40 hover:text-rose-400"
-                >
-                  <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </header>
-
-          <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-6 py-8">
-            <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-              <UploadPanel
-                onUpload={handleUpload}
-                isUploading={isUploading}
-                result={uploadResult}
-                highlights={cashflowHighlights}
-                onDownload={handleDownload}
-                error={error}
-                onUseSample={handleUseSample}
-                theme={theme}
-              />
-              <ChatPanel messages={chatMessages} onSend={handleSendMessage} isSending={isSending} theme={theme} />
-            </div>
-            <InsightsPanel result={uploadResult} theme={theme} />
-            <section className={`rounded-2xl border px-6 py-5 ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white"}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">Roadmap</h3>
-                  <p className={`text-sm ${mutedText}`}>
-                    Coming soon: multi-entity consolidations, GL sync, automated approvals, and payroll matching.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary hover:bg-primary/20"
-                >
-                  Follow updates
-                </button>
-              </div>
-            </section>
-          </main>
+    <div className={`${backgroundClass} flex min-h-screen`}>
+      {/* Sidebar Navigation */}
+      <aside className={`fixed inset-y-0 left-0 z-20 w-64 border-r ${sidebarBackground} hidden lg:block`}>
+        <div className={`flex h-16 items-center border-b px-6 ${headerBorder}`}>
+          <LogoHeader compact theme={theme} />
         </div>
-      </div>
+        <nav className="space-y-1 p-4">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeNav === item.id;
+            const activeClass = isDark ? "bg-primary/10 text-primary" : "bg-primary/5 text-primary";
+            const inactiveClass = isDark ? "text-slate-400 hover:bg-slate-800 hover:text-slate-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700";
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveNav(item.id)}
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${isActive ? activeClass : inactiveClass}`}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="absolute bottom-4 left-4 right-4">
+          <button
+            onClick={handleLogout}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${isDark ? "text-slate-400 hover:bg-slate-800 hover:text-slate-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"}`}
+          >
+            <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 lg:pl-64 xl:pr-80">
+        <header className={`sticky top-0 z-10 flex h-16 items-center justify-between border-b px-6 backdrop-blur-md ${headerBorder}`}>
+          <div className="lg:hidden">
+            <LogoHeader compact theme={theme} />
+          </div>
+          <div className="flex items-center gap-4 ml-auto">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
+        </header>
+
+        <div className="p-6 lg:p-8">
+          <div className="mx-auto max-w-5xl space-y-6">
+            {activeNav === "dashboard" && (
+              <>
+                <UploadPanel
+                  onUpload={handleUpload}
+                  isUploading={isUploading}
+                  uploadProgress={uploadProgress}
+                  statusMessage={statusMessage}
+                  result={uploadResult}
+                  highlights={cashflowHighlights}
+                  onDownload={handleDownload}
+                  error={error}
+                  onUseSample={handleUseSample}
+                  theme={theme}
+                />
+                <HistoryPanel
+                  history={history}
+                  onSelect={handleSelectHistory}
+                  onDelete={handleDeleteHistory}
+                  theme={theme}
+                />
+              </>
+            )}
+
+            {activeNav === "cashflow" && (
+              <InsightsPanel result={uploadResult} theme={theme} />
+            )}
+
+            {(activeNav === "balance-sheet" || activeNav === "income-statement") && (
+              <div className={`rounded-2xl border p-12 text-center ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white"}`}>
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+                  <SparklesIcon className="h-8 w-8" />
+                </div>
+                <h2 className="mt-4 text-xl font-semibold">Coming Soon</h2>
+                <p className={`mt-2 ${mutedText}`}>
+                  We're working hard to bring you automated {activeNav.replace("-", " ")} generation.
+                </p>
+              </div>
+            )}
+            
+            {/* Other tabs placeholders */}
+            {["automation", "exports", "variance", "settings"].includes(activeNav) && (
+               <div className={`rounded-2xl border p-12 text-center ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white"}`}>
+                <h2 className="text-xl font-semibold">Coming Soon</h2>
+                <p className={`mt-2 ${mutedText}`}>This feature is under development.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Chat Panel - Fixed on the right */}
+      <aside className={`fixed inset-y-0 right-0 z-20 w-80 border-l ${sidebarBackground} hidden xl:block`}>
+        <ChatPanel
+          messages={chatMessages}
+          onSend={handleSendMessage}
+          isSending={isSending}
+          theme={theme}
+        />
+      </aside>
     </div>
   );
 }

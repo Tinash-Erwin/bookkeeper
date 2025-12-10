@@ -1,64 +1,86 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
-from fastapi.middleware.cors import CORSMiddleware
-import shutil
 import os
-import tempfile
-from typing import Optional
-from parser import get_parser, OpenAIParser, Transaction
-from dataclasses import asdict
-from dotenv import load_dotenv
+import json
+import io
+from typing import List
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from pydantic import BaseModel
+import pdfplumber
+import openai
 
-load_dotenv()
+app = FastAPI()
 
-app = FastAPI(title="Bank Statement Parser API")
+class Transaction(BaseModel):
+    date: str
+    description: str
+    amount: float
+    category: str = "Uncategorized"
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class ParseResponse(BaseModel):
+    transactions: List[Transaction]
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+@app.post("/parse", response_model=ParseResponse)
+async def parse_statement(file: UploadFile = File(...)):
+    # Accept PDF files
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
-@app.post("/parse")
-async def parse_statement(
-    file: UploadFile = File(...),
-    bank: str = Form("generic"),
-    api_key: Optional[str] = Form(None)
-):
-    # Create a temporary file to save the uploaded PDF
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-        shutil.copyfileobj(file.file, temp_file)
-        temp_path = temp_file.name
-
+    content = await file.read()
+    
     try:
-        # Determine which parser to use
-        if bank == "openai":
-            # Use provided key or env var
-            key = api_key or os.getenv("OPENAI_API_KEY")
-            if not key:
-                raise HTTPException(status_code=400, detail="OpenAI API key required for 'openai' bank parser")
-            parser = OpenAIParser(api_key=key)
-        else:
-            parser = get_parser(bank)
-
-        # Parse the file
-        transactions = parser.parse(temp_path)
+        text = ""
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
         
-        # Convert to list of dicts
-        return [asdict(t) for t in transactions]
+        if not text.strip():
+             raise HTTPException(status_code=422, detail="Could not extract text from PDF. It might be an image scan.")
 
+        transactions = await extract_transactions_with_openai(text)
+        return {"transactions": transactions}
+        
     except Exception as e:
+        print(f"Error parsing PDF: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+async def extract_transactions_with_openai(text: str) -> List[Transaction]:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise Exception("OPENAI_API_KEY not set")
+    
+    client = openai.AsyncOpenAI(api_key=api_key)
+    
+    prompt = """
+    Extract all financial transactions from the following bank statement text.
+    Return a JSON object with a key "transactions" which is a list of objects.
+    Each object must have:
+    - "date": string in YYYY-MM-DD format
+    - "description": string
+    - "amount": number (negative for debits/expenses, positive for credits/income)
+    - "category": string (guess a category based on description, e.g., Groceries, Rent, Salary, Utilities, Transfer, etc.)
+    
+    Ignore headers, footers, and summary lines. Only extract individual transactions.
+    
+    Text:
+    """
+    
+    # Truncate text to avoid context limit if necessary, but gpt-4o-mini has 128k context.
+    # However, let's be safe and take the first 50k chars which is plenty for a statement.
+    truncated_text = text[:50000]
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a financial data extraction assistant. You output valid JSON."},
+            {"role": "user", "content": prompt + "\n\n" + truncated_text}
+        ],
+        response_format={"type": "json_object"}
+    )
+    
+    content = response.choices[0].message.content
+    if not content:
+        return []
+        
+    data = json.loads(content)
+    return data.get("transactions", [])

@@ -56,6 +56,16 @@ services:
       - frontend
       - backend
 
+  parser:
+    build:
+      context: ./python_parser
+    env_file:
+      - ./.env
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+
 volumes:
   caddy_data:
   caddy_config:

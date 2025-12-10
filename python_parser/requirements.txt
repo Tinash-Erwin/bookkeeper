@@ -1,8 +1,6 @@
-pdfplumber
-pandas
-openpyxl
-openai
-python-dotenv
 fastapi
 uvicorn
 python-multipart
+pdfplumber
+openai
+pandas
