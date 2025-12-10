@@ -1,5 +1,11 @@
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+import { spawn } from "child_process";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { Buffer } from "node:buffer";
+import process from "node:process";
 import { CashflowSummary, RawTransaction } from "../types.js";
 
 const CSV_MIME = new Set([
@@ -11,6 +17,10 @@ const CSV_MIME = new Set([
 const EXCEL_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel"
+]);
+
+const PDF_MIME = new Set([
+  "application/pdf"
 ]);
 
 export async function parseStatement(
@@ -26,7 +36,128 @@ export async function parseStatement(
     return parseXlsxBuffer(buffer);
   }
 
-  throw new Error("Unsupported file type. Please upload a CSV or XLSX bank statement.");
+  if (PDF_MIME.has(mimetype) || originalname.toLowerCase().endsWith(".pdf")) {
+    return parsePdfBuffer(buffer);
+  }
+
+  throw new Error("Unsupported file type. Please upload a CSV, XLSX, or PDF bank statement.");
+}
+
+async function parsePdfBuffer(buffer: Buffer): Promise<RawTransaction[]> {
+  // Check if we should use the Parser API (e.g. in Docker)
+  const parserApiUrl = process.env.PARSER_API_URL;
+  
+  if (parserApiUrl) {
+    try {
+      // @ts-ignore
+      const formData = new FormData();
+      // @ts-ignore
+      const blob = new Blob([buffer], { type: 'application/pdf' });
+      formData.append('file', blob, 'statement.pdf');
+      formData.append('bank', 'openai');
+      
+      // Pass API key if available in backend env, otherwise parser service might use its own
+      if (process.env.OPENAI_API_KEY) {
+        formData.append('api_key', process.env.OPENAI_API_KEY);
+      }
+
+      // @ts-ignore
+      const response = await fetch(`${parserApiUrl}/parse`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        // @ts-ignore
+        const errorText = await response.text();
+        throw new Error(`Parser API error: ${response.status} ${errorText}`);
+      }
+
+      // @ts-ignore
+      const transactions = await response.json();
+      
+      return transactions.map((t: any) => ({
+        date: t.date,
+        description: t.description,
+        amount: Number(t.amount),
+        category: t.category || "Uncategorized"
+      }));
+
+    } catch (error) {
+      console.error("Parser API failed, falling back to local script if possible", error);
+      // Fallthrough to local script execution
+    }
+  }
+
+  const tempDir = os.tmpdir();
+  const tempPdfPath = path.join(tempDir, `upload-${Date.now()}.pdf`);
+  const tempJsonPath = path.join(tempDir, `upload-${Date.now()}.json`);
+
+  fs.writeFileSync(tempPdfPath, buffer);
+
+  return new Promise((resolve, reject) => {
+    // Assuming python is in the PATH and dependencies are installed
+    // We use the 'openai' bank parser as requested
+    const pythonScript = path.resolve(process.cwd(), "../python_parser/parser.py");
+    
+    // Check if script exists, if not try local path (in case running from backend dir)
+    const scriptPath = fs.existsSync(pythonScript) 
+      ? pythonScript 
+      : path.resolve(process.cwd(), "python_parser/parser.py"); // Fallback if cwd is root
+
+    // If still not found, try one level up from src (if running from backend/src)
+    // Best to rely on relative path from project root if possible.
+    // Let's assume process.cwd() is 'backend' or root.
+    
+    // Construct command: python parser.py <input> --format json --output <output> --bank openai
+    const pythonProcess = spawn("python", [
+      scriptPath,
+      tempPdfPath,
+      "--format", "json",
+      "--output", tempJsonPath,
+      "--bank", "openai"
+    ]);
+
+    let stderrData = "";
+
+    pythonProcess.stderr.on("data", (data: any) => {
+      stderrData += data.toString();
+    });
+
+    pythonProcess.on("close", (code: number) => {
+      // Clean up PDF
+      try { fs.unlinkSync(tempPdfPath); } catch (e) { /* ignore */ }
+
+      if (code !== 0) {
+        reject(new Error(`PDF parsing failed: ${stderrData}`));
+        return;
+      }
+
+      if (fs.existsSync(tempJsonPath)) {
+        try {
+          const jsonContent = fs.readFileSync(tempJsonPath, "utf-8");
+          const transactions = JSON.parse(jsonContent);
+          
+          // Normalize transactions
+          const normalized = transactions.map((t: any) => ({
+            date: t.date,
+            description: t.description,
+            amount: Number(t.amount),
+            category: t.category || "Uncategorized"
+          }));
+
+          // Clean up JSON
+          fs.unlinkSync(tempJsonPath);
+          
+          resolve(normalized);
+        } catch (err) {
+          reject(new Error("Failed to parse generated JSON from PDF parser"));
+        }
+      } else {
+        reject(new Error("PDF parser did not generate output file"));
+      }
+    });
+  });
 }
 
 function parseCsvBuffer(buffer: Buffer): RawTransaction[] {

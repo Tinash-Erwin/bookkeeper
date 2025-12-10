@@ -4,12 +4,26 @@ services:
       context: ./backend
     env_file:
       - ./.env
+    environment:
+      - PARSER_API_URL=http://parser:8000
     expose:
       - "8080"
     ports:
       - "8080:8080"
     volumes:
       - ./backend/uploads:/usr/src/app/uploads
+    depends_on:
+      - parser
+
+  parser:
+    build:
+      context: ./python_parser
+    env_file:
+      - ./.env
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
 
   frontend:
     build:
